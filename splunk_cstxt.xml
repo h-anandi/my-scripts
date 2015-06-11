@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<specification xmlns="http://www.x15software.com/schemas/pds/1.0">
+  <pipeline name="load">
+    <readline />
+    <script language="dtl">
+      <code>
+        <![CDATA[
+define parser common_log {
+USERNAME = r'[a-zA-Z0-9_-]+';
+
+IP = r'(?<![0-9])(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2}))(?![0-9])';
+HOSTNAME = r'\b(?:[0-9A-Za-z][0-9A-Za-z-]{0,62})(?:\.(?:[0-9A-Za-z][0-9A-Za-z-]{0,62}))*(?:(?:\.?)|(?:\b))';
+
+IP2 = struct {
+    ip21: IP;
+    : r', ';
+    ip22: IP;
+};
+
+IPORHOST = choice {
+    ip: IP; 
+    ip2: IP2; 
+    host: HOSTNAME;
+};
+
+HTTP_VERSION = struct {
+    : r'HTTP ';
+    major: r'[0-9]+';
+    : r'\.';
+    minor: r'[0-9]+';
+};
+HTTP_TIMESTAMP = struct {
+    : r'\[';
+    "day": r'(?:(?:0[1-9])|(?:[12][0-9])|(?:3[01])|[1-9])';
+    : r'/';
+    "month": r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b';
+    : r'/';
+    "year": r'[0-9]+';
+    : r':';
+    "hour": r'(?:2[0123]|[01][0-9])';
+    : r':';
+    "minute": r'(?:[0-5][0-9])';
+    : r':';
+    "second": r'(?:(?:[0-5][0-9]|60)(?:[.,][0-9]+)?)';
+    : r'\]';
+};
+
+COMMON_LOG = struct {
+    clientip: IPORHOST;
+    : r' ';
+     ident: USERNAME;
+    : r' ';
+    auth: USERNAME;
+    : r' ';
+    "timestamp": HTTP_TIMESTAMP;
+    : r' ';
+    : r'"';
+    verb: r'[A-Z]+';
+    : r' ';
+    path: r'[^ ]*';
+    : r' '; 
+    version: HTTP_VERSION;
+    : r'"';
+    : r' ';
+    httpcode: r'[0-9]*';
+    : r' ';
+    size: r'[0-9]*';
+    : r' ';
+    : r'"';
+    referrer: r'[^"]*';
+    : r'"';
+    : r' ';
+    : r'"';
+    useragent: r'[^"]*';
+    : r'"';
+    : r'.*';
+};
+
+}
+
+line = input['line']
+decbody = line
+dbody = common_log.COMMON_LOG(line)
+
+		return {
+		    '_raw': decbody,
+		    'clientip': dbody['clientip']['ip'],
+		    'clientip2': dbody['clientip']['ip2'],
+		    'tmstp': dbody['timestamp'],
+		    'verb': dbody['verb'],
+		    'path': dbody['path'],
+		    'major': dbody['version']['major'],
+		    'minor': dbody['version']['minor'],
+		    'hcode': dbody['httpcode'],
+		    'size': dbody['size'],
+		    'ref': dbody['referrer'],
+		    'useragent': dbody['useragent'],
+		    '_ts': clock_timestamp()
+		}
+        ]]>
+      </code>
+    </script>
+  </pipeline>
+</specification>
